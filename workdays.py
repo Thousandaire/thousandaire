@@ -5,7 +5,7 @@ Refer to trading day of currency
 
 import os
 import pickle
-from dataset import Dataset
+from dataset import Data, Dataset
 from data_loader import DataLoader
 
 class Crawler():
@@ -43,11 +43,11 @@ class Crawler():
         #because USD is the strongest currency.
         #When region is US, we use JPY instead.
         reference_currency = 'USD' if region != 'us' else 'JPY'
-        return_data = Dataset('workdays', [])
+        return_data = Data('workdays', [])
         for value in reference_data[data_name][reference_currency][::-1]:
             if value.date == self.renew_date[region]:
                 break
-            return_data.append((value.date))
+            return_data.append((value.date,))
         self.renew_date[region] = return_data[0].date
         return_data.reverse()
         return return_data
@@ -59,4 +59,4 @@ class Crawler():
         return_data = {}
         for region in self.regions:
             return_data[region] = self.set_workdays(region)
-        return return_data
+        return Dataset(self.data_name, return_data)

@@ -13,11 +13,11 @@ def call_crawler(data_list):
     for data_name in data_list:
         crawler_module = importlib.import_module(data_name)
         crawler = crawler_module.Crawler(data_name)
-        old_data = DataLoader([data_name]).get_raw_data()
+        old_data = DataLoader([data_name]).get_raw_data()[data_name]
         new_data = crawler.update()
         with open(data_name, 'wb') as file:
             for key in new_data:
-                if key in old_data[data_name].keys():
-                    new_data[key] = old_data[data_name][key] + new_data[key]
+                if key in old_data.keys():
+                    new_data[key] = old_data[key] + new_data[key]
             pickle.dump(new_data, file)
         crawler.set_renew_date()

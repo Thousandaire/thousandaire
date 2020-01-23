@@ -7,7 +7,7 @@ import pickle
 import os
 from datetime import datetime
 import requests
-from dataset import Dataset
+from dataset import Data, Dataset
 
 class Crawler():
     """
@@ -41,7 +41,7 @@ class Crawler():
         """
         Crawl target data.
         """
-        history = Dataset('price_tw', ['buy', 'sell'])
+        history = Data('price_tw', ['buy', 'sell'])
         counter = 1
         synchronized = False
         while not synchronized:
@@ -89,4 +89,4 @@ class Crawler():
         return_data = {}
         for instrument in self.instruments:
             return_data[instrument] = self.crawl_data(instrument)
-        return return_data
+        return Dataset(self.data_name, return_data)
