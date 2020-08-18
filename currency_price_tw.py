@@ -41,7 +41,7 @@ class Crawler():
         """
         Crawl target data.
         """
-        history = Data('price_tw', ['buy', 'sell'])
+        history = Data(instrument, ['buy', 'sell'])
         counter = 1
         synchronized = False
         while not synchronized:
@@ -70,8 +70,9 @@ class Crawler():
                 sell += sell_discount
                 history.append((date, buy, sell))
             counter += 1
-        self.renew_date[instrument] = history[0].date
-        history.reverse()
+        if len(history) > 0:
+            self.renew_date[instrument] = history[0].date
+            history.reverse()
         return history
 
     def set_renew_date(self):

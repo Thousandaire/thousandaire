@@ -14,7 +14,7 @@ class Crawler():
     """
     def __init__(self, data_name):
         #regions will read from file in the future
-        self.regions = ['tw']
+        self.regions = ['TW']
         self.data_name = data_name
         timestamp_file = data_name + '_timestamp_file.pkl'
         if os.path.isfile(timestamp_file):
@@ -42,14 +42,15 @@ class Crawler():
         #We set workdays from the trading day which the region's currency trade with USD,
         #because USD is the strongest currency.
         #When region is US, we use JPY instead.
-        reference_currency = 'USD' if region != 'us' else 'JPY'
+        reference_currency = 'USD' if region != 'US' else 'JPY'
         return_data = Data('workdays', [])
         for value in reference_data[data_name][reference_currency][::-1]:
             if value.date == self.renew_date[region]:
                 break
             return_data.append((value.date,))
-        self.renew_date[region] = return_data[0].date
-        return_data.reverse()
+        if len(return_data) > 0:
+            self.renew_date[region] = return_data[0].date
+            return_data.reverse()
         return return_data
 
     def update(self):
