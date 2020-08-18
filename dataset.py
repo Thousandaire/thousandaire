@@ -61,6 +61,7 @@ class DataController():
     Control the data privacy.
     """
     def __init__(self, data, key=None):
+        self.name = data.name
         self.__data = data
         self.__end = len(self.__data)
         self.__key = key
@@ -139,11 +140,18 @@ class DataController():
 
     def protect(func):
         def wrapper(self, *args, **kargs):
-            if kargs.get('auth_key') != self.__key:
+            if kargs.pop('auth_key', None) != self.__key:
                 raise IOError('Permission denied.')
-            kargs.pop('auth_key')
             return func(self, *args, **kargs)
         return wrapper
+
+    @protect
+    def extend(self, extend_object):
+        if isinstance(extend_object, DataController) and self.name == extend_object.name:
+            self.__data.extend(extend_object)
+            self.__end = len(self.__data)
+        else:
+            raise TypeError("Data in a dataset must be the same types.")
 
     def get_today(self):
         """
