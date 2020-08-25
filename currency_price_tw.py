@@ -2,30 +2,26 @@
 Get currency price
 """
 
-import xml.etree.ElementTree as ET
-import pickle
-import os
 from datetime import datetime
+import xml.etree.ElementTree as ET
 import requests
+from crawler import BaseCrawler
 from dataset import Data, Dataset
 
-class Crawler():
+class Crawler(BaseCrawler):
     """
     Crawling new data and update.
     """
-    def __init__(self, data_name):
+    def __init__(self, dataset_name):
+        BaseCrawler.__init__(self, dataset_name)
         #instrument will read from file in the future
-        self.instruments = ['USD', 'JPY', 'AUD', 'SEK', 'NZD', 'EUR', 'ZAR', 'GBP']
-        self.data_name = data_name
+        self.instruments = [
+                'USD', 'JPY', 'AUD', 'SEK', 'NZD', 'EUR', 'ZAR', 'GBP']
         self.url = 'https://historical.findrate.tw/his.php?c='
-        timestamp_file = data_name + '_timestamp_file.pkl'
-        if os.path.isfile(timestamp_file):
-            with open(timestamp_file, 'rb') as file:
-                renew_date = pickle.load(file)
-        else:
-            renew_date = {}
-        self.renew_date = {
-            instrument: renew_date.get(instrument) for instrument in self.instruments}
+        last_modified_date = self.get_last_modified_date()
+        self.last_modified_date = {
+            instrument: last_modified_date.get(instrument)
+            for instrument in self.instruments}
 
     def get_table(self, target):
         """
@@ -51,15 +47,15 @@ class Crawler():
             if not rows:
                 break
             for row in rows:
-                grids = list(row) 
+                grids = list(row)
                 date = datetime.strptime(grids[0][0].text, '%Y-%m-%d')
-                if date == self.renew_date[instrument]:
+                if date == self.last_modified_date[instrument]:
                     synchronized = True
                     break
                 buy = float(grids[3].text)
                 sell = float(grids[4].text)
-                #Data came from BANK OF TAIWAN.
-                #It gave some discount for Internet-trading.
+                # Data come from BANK OF TAIWAN, which offers discount for
+                # online trading.
                 if instrument == 'USD':
                     buy_discount = 0.03
                     sell_discount = -0.03
@@ -71,17 +67,9 @@ class Crawler():
                 history.append((date, buy, sell))
             counter += 1
         if len(history) > 0:
-            self.renew_date[instrument] = history[0].date
+            self.last_modified_date[instrument] = history[0].date
             history.reverse()
         return history
-
-    def set_renew_date(self):
-        """
-        To reset the renew_date for all instruments
-        """
-        data_name = self.data_name + '_timestamp_file.pkl'
-        with open(data_name, 'wb') as file:
-            pickle.dump(self.renew_date, file)
 
     def update(self):
         """
@@ -90,4 +78,4 @@ class Crawler():
         return_data = {}
         for instrument in self.instruments:
             return_data[instrument] = self.crawl_data(instrument)
-        return Dataset(self.data_name, return_data)
+        return self.last_modified_date, Dataset(self.dataset_name, return_data)
