@@ -1,13 +1,14 @@
 """
-Use to give data to alpha
+Implementation of DataLoader module.
 """
 
 import pickle
 from dataset import Dataset
 
-class DataLoader():
+class DataLoader:
     """
-    load the data which users' need
+    This object loads data from archieved files and feeds back data in Dataset
+    format defined in dataset.py.
     """
     def __init__(self, data_list):
         self.data = {}
@@ -17,10 +18,15 @@ class DataLoader():
                     self.data[data_name] = pickle.load(file)
             except FileNotFoundError:
                 self.data[data_name] = Dataset(data_name, {})
-                print("Warning: %s didn't existence" % (data_name))
+                print("Warning: %s does not exist." % (data_name))
 
-    def get_raw_data(self):
+    def get_all(self):
         """
-        return all information
+        Return all available data.
         """
         return self.data
+
+    def get_update(self):
+        """
+        TO-DO: Update the data and return those new data.
+        """

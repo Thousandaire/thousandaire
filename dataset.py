@@ -4,6 +4,18 @@ Adjust data into the format we want.
 
 import collections
 
+def protect(func):
+    """
+    This is a decorator which checks permission before calling the method.
+    To get permission, the caller must pass the correct `auth_key`.
+    """
+    def wrapper(self, *args, **kargs):
+        key = kargs.pop('auth_key', None)
+        if not self.authorize(key):
+            raise IOError('Permission denied.')
+        return func(self, *args, **kargs)
+    return wrapper
+
 class Data(list):
     """
     Change the data into the reservation mode.
@@ -15,8 +27,8 @@ class Data(list):
         self.data_type = collections.namedtuple(name, self.fields)
         return self
 
-    def __init__(self, name, fields):
-        pass
+    def __init__(self, *_):
+        super().__init__(self)
 
     def __reduce_ex__(self, proto):
         return (
@@ -27,17 +39,17 @@ class Data(list):
             None
         )
 
-    def append(self, x):
-        list.append(self, self.materialize(x))
+    def append(self, element):
+        list.append(self, self.materialize(element))
 
     def extend(self, iterable):
         list.extend(self, list(map(self.materialize, iterable)))
 
-    def materialize(self, x):
+    def materialize(self, element):
         """
-        Build data into namedtuple
+        Convert data (in tuple) into namedtuple.
         """
-        return self.data_type(*x)
+        return self.data_type(*element)
 
 class DataIterator():
     """
@@ -53,7 +65,8 @@ class DataIterator():
     def __next__(self):
         if self.__index + 1 < len(self.__data_controller):
             self.__index += 1
-            return self.__data_controller[self.__index - len(self.__data_controller)]
+            return self.__data_controller[
+                    self.__index - len(self.__data_controller)]
         raise StopIteration
 
 class DataController():
@@ -66,12 +79,12 @@ class DataController():
         self.__end = len(self.__data)
         self.__key = key
         self.__workdays = None
-        # We need this variable in many methods, so we set a cache to improve performance.
+        # empty_row and fields other than `date` are used in many methods,
+        # so we cache them to improve performance.
         self.__empty_row = (
             tuple(None for i in range(0, len(data.fields) - 1))
             if data is not None else None
         )
-        # We need this variable in many methods, so we set a cache to improve performance.
         self.__fields = (
             list(name for name in data.fields if name != 'date')
             if data is not None else None
@@ -81,23 +94,24 @@ class DataController():
         """
         Use self.__end to control the data privacy.
 
-        In the back-test system, we assume that the current simulating day is index 0.
-        Since users should get only data before the current day, the method should accept
-        only negative numbers.
+        In the back-test system, we assume that the current simulating day is
+        index 0. Since users should get only data before the current day, the
+        method should accept only negative numbers.
 
         If getting non-negative numbers, an IndexError will be raised.
         Otherwise, we have 2 cases:
             (1) We get a negative number:
-                We use self.__end and the number we get to produce a new index to meet the
-                assumption we set above. Then, we return self.__data[index] to the users.
-                When the user requires some data earlier than our raw data,
+                We use self.__end and the number we get to produce a new index
+                to meet the assumption above. Then, we return
+                `self.__data[index]` to the users.
+                When users require some data earlier than our raw data,
                     (a) if the data were not earlier than workdays data:
                         return an Data object with "None" data.
                     (b) if the data were earlier than workdays data:
                         raise an IndexError.
             (2) We get a slice:
-                We reset the start index and stop index according to our assumption, and return
-                a newly generated DataController.
+                We reset the start index and stop index according to our
+                assumption, and return a newly generated DataController.
         """
         if isinstance(index, slice):
             if index.step == 0:
@@ -112,7 +126,9 @@ class DataController():
             if start >= 0 or stop > 0:
                 raise IndexError("list index out of range")
             return_data = Data(self.__data.name, self.__fields)
-            return_data.extend([self[x] for x in range(start, stop, step) if self[x] is not None])
+            return_data.extend([
+                    self[x] for x in range(start, stop, step)
+                    if self[x] is not None])
             return DataController(
                 return_data,
                 self.__key
@@ -122,12 +138,11 @@ class DataController():
         if self.__end + index < 0:
             if len(self.__workdays) + index >= 0:
                 return_datum = Data(self.__data.name, self.__fields)
-                return_datum.append( self.__workdays[index].date, self.__empty_row)
+                return_datum.append(
+                        (self.__workdays[index].date, self.__empty_row))
                 return return_datum
-            else:
-                raise IndexError("list index out of range")
-        else:
-            return self.__data[self.__end + index]
+            raise IndexError("list index out of range")
+        return self.__data[self.__end + index]
 
     def __iter__(self):
         return DataIterator(self)
@@ -138,16 +153,20 @@ class DataController():
     def __str__(self):
         return str(self.__data[: self.__end])
 
-    def protect(func):
-        def wrapper(self, *args, **kargs):
-            if kargs.pop('auth_key', None) != self.__key:
-                raise IOError('Permission denied.')
-            return func(self, *args, **kargs)
-        return wrapper
+    def authorize(self, key):
+        """
+        Check if the key is correct to authorize the key holder to access
+        the data.
+        """
+        return key == self.__key
 
     @protect
     def extend(self, extend_object):
-        if isinstance(extend_object, DataController) and self.name == extend_object.name:
+        """
+        Similar to list.extend.
+        """
+        if (isinstance(extend_object, DataController)
+                and self.name == extend_object.name):
             self.__data.extend(extend_object)
             self.__end = len(self.__data)
         else:
@@ -157,8 +176,8 @@ class DataController():
         """
         Return the date of the current simulating day.
 
-        When self.__end == len(self.__data),
-        that means we are generating the portfolio for the next real-life trading day.
+        When self.__end == len(self.__data), it means we are generating the
+        portfolio for the next real-life trading day.
         None will be returned as the next workday is still unknown.
         """
         if self.__end == len(self.__data):
@@ -171,14 +190,16 @@ class DataController():
         Move to next workday.
 
         2 thing to be concerned:
-            (1) When self.__end == len(self.__data), it means we do not have the next date.
-                Thus, we raise a ValueError when users still call this method.
-            (2) The self.__data may not be as old as workdays data, so we should check it to know
-                we should move self.__end.
+            (1) When self.__end == len(self.__data), it means we do not have
+                the next date. Thus, we raise a ValueError when users still
+                call this method.
+            (2) The self.__data may not be as old as workdays data, so we
+                should check it to know we should move self.__end.
         """
         if self.__end == len(self.__data):
             raise ValueError("Date not found.")
-        if self.__end == 0 and self.__data[0].date != self.__workdays.get_today():
+        if (self.__end == 0
+                and self.__data[0].date != self.__workdays.get_today()):
             return
         self.__end += 1
 
@@ -236,10 +257,10 @@ class DataController():
 
         To match the criterion above, 3 things should be concerned:
             (1) The start date of the synchronized data will be
-                (a) the first date of raw data, if it is a workday
-                (b) the first workday after the first date in raw data, otherwise
-            (2) If raw data is not available on some date in workdays,
-                data of the date will be set to None-vector in synchronized data.
+                (a) the first date of raw data, if it is a workday; otherwise,
+                (b) the first workday after the first date in raw data,
+            (2) If raw data is not available on some date in workdays, data of
+                the date will be set to None-vector in synchronized data.
             (3) Dates not in workdays will not be in the synchronized data
                 regardless of their existence in raw data.
         """
@@ -250,7 +271,8 @@ class DataController():
         while workdays_index < 0 and data_index < 0:
             if self.__data[data_index].date > workdays[workdays_index].date:
                 if data_index != -len(self.__data):
-                    sync_data.append((workdays[workdays_index].date, *self.__empty_row))
+                    sync_data.append(
+                            (workdays[workdays_index].date, *self.__empty_row))
                 workdays_index += 1
             elif self.__data[data_index].date < workdays[workdays_index].date:
                 data_index += 1
@@ -259,7 +281,8 @@ class DataController():
                 workdays_index += 1
                 data_index += 1
         remaining_data = [
-            (workdays[x].date, self.__empty_row) for x in range(workdays_index, 0)
+            (workdays[x].date, self.__empty_row)
+            for x in range(workdays_index, 0)
         ]
         sync_data.extend(remaining_data)
         self.__data = sync_data
