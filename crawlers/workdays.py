@@ -3,9 +3,9 @@ Set workdays in different regions
 Refer to trading day of currency
 """
 
-from crawler import BaseCrawler
-from dataset import Data, Dataset
-from data_loader import DataLoader
+from thousandaire.crawler import BaseCrawler
+from thousandaire.dataset import Data, Dataset
+from thousandaire.data_loader import DataLoader
 
 class Crawler(BaseCrawler):
     """

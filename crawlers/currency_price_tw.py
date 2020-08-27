@@ -5,8 +5,8 @@ Get currency price
 from datetime import datetime
 import xml.etree.ElementTree as ET
 import requests
-from crawler import BaseCrawler
-from dataset import Data, Dataset
+from thousandaire.crawler import BaseCrawler
+from thousandaire.dataset import Data, Dataset
 
 class Crawler(BaseCrawler):
     """

@@ -4,6 +4,7 @@ Prototype of Crawler objects.
 
 import os
 import pickle
+from thousandaire.constants import DATA_DIR, TIMESTAMP_FILE_SUFFIX
 
 class BaseCrawler:
     """
@@ -21,7 +22,8 @@ class BaseCrawler:
         """
         Return the last modified date of the dataset.
         """
-        timestamp_file = self.dataset_name + '_timestamp_file.pkl'
+        path = self.dataset_name + TIMESTAMP_FILE_SUFFIX
+        timestamp_file = os.path.join(DATA_DIR, path)
         if os.path.isfile(timestamp_file):
             with open(timestamp_file, 'rb') as file:
                 return pickle.load(file)
@@ -31,7 +33,8 @@ class BaseCrawler:
         """
         Set the last modified date of the dataset to the given dict of dates.
         """
-        timestamp_file = self.dataset_name + '_timestamp_file.pkl'
+        path = self.dataset_name + TIMESTAMP_FILE_SUFFIX
+        timestamp_file = os.path.join(DATA_DIR, path)
         with open(timestamp_file, 'wb') as file:
             pickle.dump(date_dict, file)
 
