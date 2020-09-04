@@ -11,12 +11,12 @@ class AlphaSettings(BaseAlphaSettings):
     Inherit BaseAlphaSettings and assign values at least for required fields.
     """
     # author name (str)
-    author = 'Bruce'
+    author = 'YourUserName'
     # start date of simulation (datetime.date)
-    start_date = datetime.datetime(2012, 1, 1)
+    start_date = datetime.datetime(2020, 9, 1)
     # end date of simulation (datetime.date)
     # optional, default value: datetime.date.today()
-    end_date = datetime.datetime(2018, 12, 31)
+    end_date = datetime.datetime(2020, 9, 10)
     # alpha function (any classes inheriting BaseAlphaFormula)
     alpha = AlphaFormula
     # trading target, including type and region (tuple(str, str))
