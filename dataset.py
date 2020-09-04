@@ -66,7 +66,7 @@ class DataIterator():
         if self.__index + 1 < len(self.__data_controller):
             self.__index += 1
             return self.__data_controller[
-                    self.__index - len(self.__data_controller)]
+                self.__index - len(self.__data_controller)]
         raise StopIteration
 
 class DataController():
@@ -127,8 +127,8 @@ class DataController():
                 raise IndexError("list index out of range")
             return_data = Data(self.__data.name, self.__fields)
             return_data.extend([
-                    self[x] for x in range(start, stop, step)
-                    if self[x] is not None])
+                self[x] for x in range(start, stop, step)
+                if self[x] is not None])
             return DataController(
                 return_data,
                 self.__key
@@ -139,7 +139,7 @@ class DataController():
             if len(self.__workdays) + index >= 0:
                 return_datum = Data(self.__data.name, self.__fields)
                 return_datum.append(
-                        (self.__workdays[index].date, self.__empty_row))
+                    (self.__workdays[index].date, self.__empty_row))
                 return return_datum
             raise IndexError("list index out of range")
         return self.__data[self.__end + index]
@@ -185,7 +185,7 @@ class DataController():
         return self.__data[self.__end].date
 
     @protect
-    def next_date(self):
+    def move_forward(self):
         """
         Move to next workday.
 
@@ -272,7 +272,7 @@ class DataController():
             if self.__data[data_index].date > workdays[workdays_index].date:
                 if data_index != -len(self.__data):
                     sync_data.append(
-                            (workdays[workdays_index].date, *self.__empty_row))
+                        (workdays[workdays_index].date, *self.__empty_row))
                 workdays_index += 1
             elif self.__data[data_index].date < workdays[workdays_index].date:
                 data_index += 1
@@ -281,9 +281,8 @@ class DataController():
                 workdays_index += 1
                 data_index += 1
         remaining_data = [
-            (workdays[x].date, self.__empty_row)
-            for x in range(workdays_index, 0)
-        ]
+            (workdays[x].date, *self.__empty_row)
+            for x in range(workdays_index, 0)]
         sync_data.extend(remaining_data)
         self.__data = sync_data
         self.__end = len(self.__data)
@@ -299,12 +298,12 @@ class Dataset(dict):
             self[instrument] = DataController(values)
         self.data_name = data_name
 
-    def next_date(self, key=None):
+    def move_forward(self, key=None):
         """
         Move to next workday.
         """
         for instrument in self:
-            self[instrument].next_date(auth_key=key)
+            self[instrument].move_forward(auth_key=key)
 
     def set_date(self, target, key=None):
         """

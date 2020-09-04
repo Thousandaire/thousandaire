@@ -53,15 +53,17 @@ class BaseAlphaSettings:
 
         TODO: implement value checks.
         """
-        expected_types = {
-                self.author: str,
-                self.start_date: datetime.date,
-                self.alpha: BaseAlphaFormula,
-                self.target: tuple,
-                self.data_list: list
+        expected = {
+            type(self.author): str,
+            type(self.start_date): datetime.date,
+            type(self.end_date): datetime.date,
+            self.alpha: BaseAlphaFormula,
+            type(self.target): tuple,
+            type(self.data_list): list,
+            type(self.parameters): dict
         }
-        return all(isinstance(variable, expected_type)
-                for variable, expected_type in expected_types.items())
+        return all(issubclass(variable, expected_type)
+                   for variable, expected_type in expected.items())
 
     def set_submission_info(self, submission_id, submission_date):
         """
