@@ -299,14 +299,14 @@ class Dataset(dict):
             self[instrument] = DataController(values)
         self.data_name = data_name
 
-    def next_date(self, key):
+    def next_date(self, key=None):
         """
         Move to next workday.
         """
         for instrument in self:
             self[instrument].next_date(auth_key=key)
 
-    def set_date(self, target, key):
+    def set_date(self, target, key=None):
         """
         Set the current date to the given date.
         """
@@ -320,7 +320,7 @@ class Dataset(dict):
         for instrument in self:
             self[instrument].set_key(key)
 
-    def set_workdays(self, workdays, key):
+    def set_workdays(self, workdays, key=None):
         """
         Synchronize all data with workdays.
         Should be called only by the simulator.
