@@ -13,22 +13,22 @@ class AlphaFormula(BaseAlphaFormula):
     DO NOT overload the following methods, or simulation may fail in prod:
             __call__, get_last_success_date
     """
-    def __init__(self, _date, data, parameters):
+    def __init__(self, _startdate, data, parameters):
         """
         Set up the alpha before generating any portfolios.
         If the alpha needs to warm-up before returning its first portfolio.
         """
-        BaseAlphaFormula.__init__(self, _date, data, parameters)
+        BaseAlphaFormula.__init__(self, _startdate, data, parameters)
         self.k_days = parameters['k']
         self.mid_last_k_days = {
-                instrument: deque(
-                        (datum.buy + datum.sell) / 2
-                        for datum in price_data[-self.k_days:])
-                for instrument, price_data in data['currency_price_tw'].items()
+            instrument: deque(
+                (datum.buy + datum.sell) / 2
+                for datum in price_data[-self.k_days - 1: -1])
+            for instrument, price_data in data['currency_price_tw'].items()
         }
         self.sum_last_k_days = {
-                instrument: sum(self.mid_last_k_days[instrument])
-                for instrument in data['currency_price_tw']
+            instrument: sum(self.mid_last_k_days[instrument])
+            for instrument in data['currency_price_tw']
         }
 
     def generate(self, date, data):
@@ -45,5 +45,5 @@ class AlphaFormula(BaseAlphaFormula):
             self.mid_last_k_days[instrument].append(new)
             self.sum_last_k_days[instrument] += new - old
             portfolio[instrument] = (
-                    self.sum_last_k_days[instrument] / self.k_days - new)
+                self.sum_last_k_days[instrument] / self.k_days - new)
         return portfolio
