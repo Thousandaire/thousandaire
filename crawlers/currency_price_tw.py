@@ -15,8 +15,10 @@ class Crawler(BaseCrawler):
     def __init__(self, dataset_name):
         BaseCrawler.__init__(self, dataset_name)
         #instrument will read from file in the future
+        self.base = 'TWD'
         self.instruments = [
-                'USD', 'JPY', 'AUD', 'SEK', 'NZD', 'EUR', 'ZAR', 'GBP']
+            'USD', 'EUR', 'JPY', 'GBP', 'AUD', 'CAD', 'CHF', 'CNY'
+            'HKD', 'NZD', 'SEK', 'SGD', 'MXN', 'ZAR', 'THB', 'TWD']
         self.url = 'https://historical.findrate.tw/his.php?c='
         last_modified_date = self.get_last_modified_date()
         self.last_modified_date = {
@@ -71,11 +73,26 @@ class Crawler(BaseCrawler):
             history.reverse()
         return history
 
+    def fill_data(self, instrument, data):
+        """
+        Manually fill data of base instrument.
+        """
+        reference_currency = 'USD'
+        history = Data(instrument, ['buy', 'sell'])
+        for datum in data[reference_currency]:
+            history.append((datum.date, float(1), float(1)))
+        if len(history) > 0:
+            self.last_modified_date[instrument] = history[-1].date
+        return history
+
     def update(self):
         """
         Get the historical instrument data
         """
         return_data = {}
         for instrument in self.instruments:
-            return_data[instrument] = self.crawl_data(instrument)
+            return_data[instrument] = (
+                self.crawl_data(instrument)
+                if instrument != self.base
+                else self.fill_data(instrument, return_data))
         return self.last_modified_date, Dataset(self.dataset_name, return_data)
