@@ -3,6 +3,7 @@ Set workdays in different regions
 Refer to trading day of currency
 """
 
+from thousandaire.constants import OFFICIAL_CURRENCY
 from thousandaire.crawler import BaseCrawler
 from thousandaire.dataset import Data, Dataset
 from thousandaire.data_loader import DataLoader
@@ -27,7 +28,7 @@ class Crawler(BaseCrawler):
         reference_data = DataLoader([dataset_name]).get_all()
         # We set workdays as dates in USD/TWD because this is the pair with
         # the longest trade history. If region is US, we use JPY instead.
-        reference_currency = 'USD' if region != 'US' else 'JPY'
+        reference_currency = OFFICIAL_CURRENCY[region]
         return_data = Data('workdays', [])
         for value in reference_data[dataset_name][reference_currency][::-1]:
             if value.date == self.last_modified_date[region]:
