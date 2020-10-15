@@ -6,6 +6,8 @@ isort==5.4.2
 lazy-object-proxy==1.4.3
 mccabe==0.6.1
 numpy==1.19.1
+pandas==0.25.3
+plotly==4.9.0
 pylint==2.6.0
 requests==2.24.0
 six==1.15.0
