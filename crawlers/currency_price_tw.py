@@ -17,7 +17,7 @@ class Crawler(BaseCrawler):
         #instrument will read from file in the future
         self.base = 'TWD'
         self.instruments = [
-            'USD', 'EUR', 'JPY', 'GBP', 'AUD', 'CAD', 'CHF', 'CNY'
+            'USD', 'EUR', 'JPY', 'GBP', 'AUD', 'CAD', 'CHF', 'CNY',
             'HKD', 'NZD', 'SEK', 'SGD', 'MXN', 'ZAR', 'THB', 'TWD']
         self.url = 'https://historical.findrate.tw/his.php?c='
         last_modified_date = self.get_last_modified_date()
