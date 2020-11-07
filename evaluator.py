@@ -11,8 +11,8 @@ DATES = 'dates'
 PNLS = 'pnls'
 POSITIONS_RAW = 'positions_raw'
 POSITIONS_NP = 'positions_np'
-indicators_all = {}
-indicators_default = []
+INDICATORS_ALL = {}
+INDICATORS_DEFAULT = []
 
 class Evaluator:
     """
@@ -24,7 +24,7 @@ class Evaluator:
             If indicators=None, default indicators will be calculated.
         """
         if indicator_names is None:
-            self.indicators = indicators_default
+            self.indicators = INDICATORS_DEFAULT
         else:
             self.set_indicators(indicator_names)
 
@@ -40,39 +40,43 @@ class Evaluator:
         """
         self.indicators = []
         for indicator_name in indicator_names:
-            indicator = indicators_all.get(indicator_name)
+            indicator = INDICATORS_ALL.get(indicator_name)
             if indicator is None:
                 raise AttributeError(
                     'Indicator not found: %s' % indicator_name)
             self.indicators.append(indicator)
 
-    def run(self, data):
+    def run(self, instruments, data):
         """
         Run all specified evaluation functions and return their results.
 
-        data: a Data with fields 'pnls' and 'positions'.
-                pnls: a list-like objects of floats.
-                positions: a list-like of dict-like objects.
+        instruments: all instruments we need here to construct 2D np.array.
+        data: a Data with following fields:
+            dates: a list-like objects which recording dates.
+            pnls: a np.array which recording each instrument's pnl.
+            positions_raw: a list-like of dict-like objects which map
+                instruments (str) to their positions (float).
+            positions_np: the np-version of positions_raw.
         """
         dates = [item.date for item in data]
-        pnls = np.array([item.pnl for item in data])
+        pnls = {instrument: np.array([item.pnl[instrument] for item in data])
+                for instrument in instruments}
         positions_raw = [item.position_raw for item in data]
         positions_np = np.array([item.position_np for item in data])
         serialized = (
             lambda var: Array(ctypes.c_char, pickle.dumps(var), lock=False))
-        packed = {
-            DATES: serialized(dates),
-            PNLS: serialized(pnls),
-            POSITIONS_RAW: serialized(positions_raw),
-            POSITIONS_NP: serialized(positions_np)
-        }
         processes = []
         results_queue = Queue()
         for indicator in self.indicators:
             process = Process(
                 target=evaluate,
                 args=(results_queue, indicator),
-                kwargs=packed)
+                kwargs={
+                    DATES: serialized(dates),
+                    PNLS: serialized(pnls),
+                    POSITIONS_RAW: serialized(positions_raw),
+                    POSITIONS_NP: serialized(positions_np)
+                })
             process.start()
             processes.append(process)
         for process in processes:
@@ -94,13 +98,13 @@ def get_all_indicators():
     """
     Return a list of all available built-in indicators.
     """
-    return list(indicators_all.keys())
+    return list(INDICATORS_ALL.keys())
 
 def default(func):
     """
     Set func to be a default indicators.
     """
-    indicators_default.append(func)
+    INDICATORS_DEFAULT.append(func)
     return func
 
 def inputs(*needed_fields):
@@ -117,8 +121,8 @@ def inputs(*needed_fields):
                 pickle.loads(available_fileds[field])
                 for field in needed_fields))
         final.__name__ = func.__name__
-        # register the function into indicators_all
-        indicators_all[final.__name__] = final
+        # register the function into INDICATORS_ALL
+        INDICATORS_ALL[final.__name__] = final
         return final
     return middle
 
@@ -128,7 +132,8 @@ def returns(pnls):
     """
     Average annual returns
     """
-    return np.mean(pnls) * 252
+    aggregated_pnls = sum(np.array(list(pnls.values())))
+    return np.mean(aggregated_pnls) * 252
 
 @default
 @inputs(PNLS)
@@ -136,7 +141,8 @@ def sharpe(pnls):
     """
     Sharpe ratio
     """
-    return np.mean(pnls) / np.std(pnls)
+    aggregated_pnls = sum(np.array(list(pnls.values())))
+    return np.mean(aggregated_pnls) / np.std(aggregated_pnls)
 
 @default
 @inputs(POSITIONS_NP)
