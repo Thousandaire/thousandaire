@@ -11,8 +11,8 @@ DATES = 'dates'
 PNLS = 'pnls'
 POSITIONS_RAW = 'positions_raw'
 POSITIONS_NP = 'positions_np'
-indicators_all = {}
-indicators_default = []
+INDICATORS_ALL = {}
+INDICATORS_DEFAULT = []
 
 class Evaluator:
     """
@@ -24,7 +24,7 @@ class Evaluator:
             If indicators=None, default indicators will be calculated.
         """
         if indicator_names is None:
-            self.indicators = indicators_default
+            self.indicators = INDICATORS_DEFAULT
         else:
             self.set_indicators(indicator_names)
 
@@ -40,7 +40,7 @@ class Evaluator:
         """
         self.indicators = []
         for indicator_name in indicator_names:
-            indicator = indicators_all.get(indicator_name)
+            indicator = INDICATORS_ALL.get(indicator_name)
             if indicator is None:
                 raise AttributeError(
                     'Indicator not found: %s' % indicator_name)
@@ -55,7 +55,7 @@ class Evaluator:
                 positions: a list-like of dict-like objects.
         """
         dates = [item.date for item in data]
-        pnls = np.array([item.pnl for item in data])
+        pnls = np.array([sum(item.pnl.values()) for item in data])
         positions_raw = [item.position_raw for item in data]
         positions_np = np.array([item.position_np for item in data])
         serialized = (
@@ -94,13 +94,13 @@ def get_all_indicators():
     """
     Return a list of all available built-in indicators.
     """
-    return list(indicators_all.keys())
+    return list(INDICATORS_ALL.keys())
 
 def default(func):
     """
     Set func to be a default indicators.
     """
-    indicators_default.append(func)
+    INDICATORS_DEFAULT.append(func)
     return func
 
 def inputs(*needed_fields):
@@ -117,8 +117,8 @@ def inputs(*needed_fields):
                 pickle.loads(available_fileds[field])
                 for field in needed_fields))
         final.__name__ = func.__name__
-        # register the function into indicators_all
-        indicators_all[final.__name__] = final
+        # register the function into INDICATORS_ALL
+        INDICATORS_ALL[final.__name__] = final
         return final
     return middle
 
