@@ -10,7 +10,7 @@ import pickle
 from thousandaire.constants import DATA_LIST_ALL, OFFICIAL_CURRENCY
 from thousandaire.constants import TRADING_CONFIGS
 from thousandaire.constants import TRADING_INSTRUMENTS, TRADING_REGIONS
-from thousandaire.dataset import Dataset
+from thousandaire.data_classes import Dataset
 from thousandaire.data_loader import DataLoader
 from thousandaire.evaluator import Evaluator
 from thousandaire.simulator import Simulator

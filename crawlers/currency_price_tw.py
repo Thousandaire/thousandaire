@@ -6,7 +6,7 @@ from datetime import datetime
 import xml.etree.ElementTree as ET
 import requests
 from thousandaire.crawler import BaseCrawler
-from thousandaire.dataset import Data, Dataset
+from thousandaire.data_classes import Data, Dataset
 
 class Crawler(BaseCrawler):
     """

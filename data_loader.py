@@ -5,7 +5,7 @@ Implementation of DataLoader module.
 import os
 import pickle
 from thousandaire.constants import DATA_DIR
-from thousandaire.dataset import Dataset
+from thousandaire.data_classes import Dataset
 
 class DataLoader:
     """
