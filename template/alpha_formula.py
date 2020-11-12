@@ -4,7 +4,7 @@ A template of alpha formula.
 
 from collections import deque
 from thousandaire.alpha import BaseAlphaFormula
-from thousandaire.portfolio import Portfolio
+from thousandaire.data_classes import Portfolio
 
 class AlphaFormula(BaseAlphaFormula):
     """

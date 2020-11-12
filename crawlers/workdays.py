@@ -5,7 +5,7 @@ Refer to trading day of currency
 
 from thousandaire.constants import OFFICIAL_CURRENCY
 from thousandaire.crawler import BaseCrawler
-from thousandaire.dataset import Data, Dataset
+from thousandaire.data_classes import Data, Dataset
 from thousandaire.data_loader import DataLoader
 
 class Crawler(BaseCrawler):

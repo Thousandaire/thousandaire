@@ -4,7 +4,7 @@ Simulator that simulates trading process and estimates profits and losses.
 
 import copy
 import uuid
-from thousandaire.dataset import Data
+from thousandaire.data_classes import Data
 from thousandaire.constants import TRADING_INSTRUMENTS
 
 def decode_data(data):
