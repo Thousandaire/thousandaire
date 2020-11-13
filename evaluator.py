@@ -7,12 +7,42 @@ import ctypes
 import pickle
 import numpy as np
 
+COSTS = 'costs'
 DATES = 'dates'
 PNLS = 'pnls'
 POSITIONS_RAW = 'positions_raw'
 POSITIONS_NP = 'positions_np'
 INDICATORS_ALL = {}
 INDICATORS_DEFAULT = []
+
+def encode_data(instruments, data):
+    """
+    Encode data into numpy type.
+
+    instruments: all instruments we need here to construct 2D np.array.
+        data: a Data with following fields:
+            dates: a list-like objects which stores dates.
+            pnls: a np.array which stores each instrument's pnl.
+            costs: a np.array which stores each instrument's trading cost.
+            positions_raw: a list-like of dict-like objects which map
+                instruments (str) to their positions (float).
+            positions_np: the np-version of positions_raw.
+    """
+    dates = [item.date for item in data]
+    pnls = {instrument: np.array([item.pnl[instrument] for item in data])
+            for instrument in instruments}
+    costs = {instrument: np.array([item.cost[instrument] for item in data])
+             for instrument in instruments}
+    positions_raw = [item.position_raw for item in data]
+    positions_np = np.array([item.position_np for item in data])
+    serialized = lambda var: Array(ctypes.c_char, pickle.dumps(var), lock=False)
+    return {
+        COSTS: serialized(costs),
+        DATES: serialized(dates),
+        PNLS: serialized(pnls),
+        POSITIONS_RAW: serialized(positions_raw),
+        POSITIONS_NP: serialized(positions_np)}
+
 
 class Evaluator:
     """
@@ -49,34 +79,14 @@ class Evaluator:
     def run(self, instruments, data):
         """
         Run all specified evaluation functions and return their results.
-
-        instruments: all instruments we need here to construct 2D np.array.
-        data: a Data with following fields:
-            dates: a list-like objects which recording dates.
-            pnls: a np.array which recording each instrument's pnl.
-            positions_raw: a list-like of dict-like objects which map
-                instruments (str) to their positions (float).
-            positions_np: the np-version of positions_raw.
         """
-        dates = [item.date for item in data]
-        pnls = {instrument: np.array([item.pnl[instrument] for item in data])
-                for instrument in instruments}
-        positions_raw = [item.position_raw for item in data]
-        positions_np = np.array([item.position_np for item in data])
-        serialized = (
-            lambda var: Array(ctypes.c_char, pickle.dumps(var), lock=False))
         processes = []
         results_queue = Queue()
         for indicator in self.indicators:
             process = Process(
                 target=evaluate,
                 args=(results_queue, indicator),
-                kwargs={
-                    DATES: serialized(dates),
-                    PNLS: serialized(pnls),
-                    POSITIONS_RAW: serialized(positions_raw),
-                    POSITIONS_NP: serialized(positions_np)
-                })
+                kwargs=encode_data(instruments, data))
             process.start()
             processes.append(process)
         for process in processes:
@@ -125,6 +135,15 @@ def inputs(*needed_fields):
         INDICATORS_ALL[final.__name__] = final
         return final
     return middle
+
+@default
+@inputs(COSTS)
+def trading_costs(costs):
+    """
+    Average annual costs of trading
+    """
+    aggregated_costs = sum(np.array(list(costs.values())))
+    return np.mean(aggregated_costs) * 252
 
 @default
 @inputs(PNLS)
