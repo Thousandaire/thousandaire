@@ -7,10 +7,10 @@ import copy
 import importlib
 import os
 import pickle
+from multiprocessing import Process, Queue
 from thousandaire.constants import DATA_LIST_ALL, OFFICIAL_CURRENCY
 from thousandaire.constants import TRADING_CONFIGS
 from thousandaire.constants import TRADING_INSTRUMENTS, TRADING_REGIONS
-from thousandaire.data_classes import Dataset
 from thousandaire.data_loader import DataLoader
 from thousandaire.evaluator import Evaluator
 from thousandaire.simulator import Simulator
@@ -24,13 +24,15 @@ def build_parser():
     """
     parser = argparse.ArgumentParser()
     parser.add_argument(
-        'alpha_settings_path', help='Path of the alpha settings file.')
+        '-p', '--alpha_settings_paths',
+        help='Paths of alpha settings files, separated by spaces.',
+        nargs='*')
     parser.add_argument(
         '-s', '--skip_evaluation',
         help='Running the simulation without evaluation..',
         action='store_true')
     parser.add_argument(
-        '-screen', '--skip_screen_print',
+        '-q', '--quiet_mode',
         help='Running the simulation without output to screen.',
         action='store_true')
     parser.add_argument(
@@ -76,7 +78,9 @@ def extract_data(raw_data, data_list, price_dataset, region):
             name : raw_data[region][name]
             for name in data_list if name in raw_data[region]}}
 
-def handle_result(output_path, skip_screen_print, results, eval_results):
+def handle_result(
+        results, eval_results, alpha_path,
+        quiet_mode, output_path):
     """
     Handle results of simulation.
     """
@@ -85,13 +89,11 @@ def handle_result(output_path, skip_screen_print, results, eval_results):
             'simulation_results': results,
             'evaluation_results': eval_results}
         with open(os.path.join(output_path, 'results'), 'wb') as file:
-            pickle.dump(
-                Dataset('results', output_data), file)
-    if not skip_screen_print:
-        print(results, eval_results, sep='\n')
+            pickle.dump(output_data, file)
+    if not quiet_mode:
+        print(alpha_path, results, eval_results, sep='\n')
 
-def simulate(alpha_settings_path, skip_evaluation,
-             skip_screen_print, output_path):
+def simulate(results_queue, data_all, alpha_settings_path, skip_evaluation):
     """
     Act the process of simulating.
     """
@@ -102,7 +104,6 @@ def simulate(alpha_settings_path, skip_evaluation,
     except ImportError as error:
         raise ImportError("No available AlphaSettings in %s"
                           % alpha_settings_path) from error
-    data_all = initialize()
     if not settings.is_valid():
         raise TypeError("Incorrect type in %s settings" % alpha_settings_path)
     _, region = settings.target
@@ -118,15 +119,36 @@ def simulate(alpha_settings_path, skip_evaluation,
     eval_results = (
         Evaluator().run(TRADING_INSTRUMENTS[settings.target], results)
         if not skip_evaluation else None)
-    handle_result(output_path, skip_screen_print, results, eval_results)
+    results_queue.put((alpha_settings_path, results, eval_results))
 
 def main():
     """
     Run the simulation process.
     """
     args = build_parser()
-    simulate(args.alpha_settings_path, args.skip_evaluation,
-             args.skip_screen_print, args.output_path)
+    data_all = initialize()
+    processes = []
+    results_queue = Queue()
+    for path in args.alpha_settings_paths:
+        process = Process(
+            target=simulate,
+            args=(
+                results_queue, data_all,
+                path, args.skip_evaluation))
+        process.start()
+        processes.append(process)
+    unordered_results = {}
+    while any(process.is_alive() for process in processes):
+        if not results_queue.empty():
+            path, results, eval_results = results_queue.get()
+            unordered_results[path] = (results, eval_results)
+    for process in processes:
+        process.join()
+    for path in args.alpha_settings_paths:
+        results, eval_results = unordered_results[path]
+        handle_result(
+            results, eval_results, path,
+            args.quiet_mode, args.output_path)
 
 if __name__ == '__main__':
     main()
