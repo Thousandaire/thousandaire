@@ -18,6 +18,8 @@ def call_crawlers(dataset_list):
         crawler = crawler_module.Crawler(dataset_name)
         cur_data = DataLoader([dataset_name]).get_all()[dataset_name]
         last_date, new_data = crawler.update()
+        if not os.path.isdir(DATA_DIR):
+            os.mkdir(DATA_DIR)
         data_path = os.path.join(DATA_DIR, dataset_name)
         with open(data_path, 'wb') as file:
             for key in new_data:
