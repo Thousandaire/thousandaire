@@ -137,13 +137,21 @@ def inputs(*needed_fields):
     return middle
 
 @default
-@inputs(COSTS)
-def trading_costs(costs):
+@inputs(PNLS)
+def max_drawdown(pnls):
     """
-    Average annual costs of trading
+    Maximal accumulated loss in any consecutive interval
+    within the simulation period.
+    If there is no drawdown at all, it will return 0.
     """
-    aggregated_costs = sum(np.array(list(costs.values())))
-    return np.mean(aggregated_costs) * 252
+    aggregated_pnls = sum(np.array(list(pnls.values())))
+    accumulated_pnls = np.add.accumulate(aggregated_pnls)
+    cur_max_pnl = 0.
+    drawdown = 0.
+    for item in accumulated_pnls:
+        drawdown = min(drawdown, item - cur_max_pnl)
+        cur_max_pnl = max(item, cur_max_pnl)
+    return drawdown
 
 @default
 @inputs(PNLS)
@@ -162,6 +170,15 @@ def sharpe(pnls):
     """
     aggregated_pnls = sum(np.array(list(pnls.values())))
     return np.mean(aggregated_pnls) / np.std(aggregated_pnls)
+
+@default
+@inputs(COSTS)
+def trading_costs(costs):
+    """
+    Average annual costs of trading
+    """
+    aggregated_costs = sum(np.array(list(costs.values())))
+    return np.mean(aggregated_costs) * 252
 
 @default
 @inputs(POSITIONS_NP)
