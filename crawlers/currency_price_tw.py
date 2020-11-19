@@ -8,6 +8,16 @@ import requests
 from thousandaire.crawler import BaseCrawler
 from thousandaire.data_classes import Data, Dataset
 
+def is_float(test_datum):
+    """
+    Check whether the prices exist.
+    """
+    try:
+        float(test_datum)
+    except ValueError:
+        return False
+    return True
+
 class Crawler(BaseCrawler):
     """
     Crawling new data and update.
@@ -54,18 +64,14 @@ class Crawler(BaseCrawler):
                 if date == self.last_modified_date[instrument]:
                     synchronized = True
                     break
-                buy = float(grids[3].text)
-                sell = float(grids[4].text)
+                buy = float(grids[3].text) if is_float(grids[3].text) else None
+                sell = float(grids[4].text) if is_float(grids[4].text) else None
                 # Data come from BANK OF TAIWAN, which offers discount for
                 # online trading.
-                if instrument == 'USD':
-                    buy_discount = 0.03
-                    sell_discount = -0.03
-                else:
-                    buy_discount = buy * 0.001
-                    sell_discount = -sell * 0.001
-                buy += buy_discount
-                sell += sell_discount
+                if buy:
+                    buy += 0.03 if instrument == 'USD' else buy * 0.001
+                if sell:
+                    sell -= 0.03 if instrument == 'USD' else sell * 0.001
                 history.append((date, buy, sell))
             counter += 1
         if len(history) > 0:
