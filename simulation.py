@@ -5,9 +5,11 @@ Fuctions for a process to simulate an alpha.
 import argparse
 import copy
 import importlib
+import json
 import os
 import pickle
 from multiprocessing import Process, Queue
+import pandas
 from thousandaire.constants import DATA_LIST_ALL, OFFICIAL_CURRENCY
 from thousandaire.constants import TRADING_CONFIGS
 from thousandaire.constants import TRADING_INSTRUMENTS, TRADING_REGIONS
@@ -78,12 +80,33 @@ def extract_data(raw_data, data_list, price_dataset, region):
             name : raw_data[region][name]
             for name in data_list if name in raw_data[region]}}
 
-def handle_result(
-        results, eval_results, alpha_path,
-        quiet_mode, output_path):
+def convert_to_dataframe(results, instruments):
+    """
+    Change results format into pandas DataFrame.
+    """
+    form = {
+        'instrument': [],
+        'date': [],
+        'pnl': [],
+        'cost': [],
+        'position': []
+    }
+    for today in results:
+        date = today.date
+        for instrument in instruments:
+            form['date'].append(date)
+            form['instrument'].append(instrument)
+            form['pnl'].append(today.pnl[instrument])
+            form['cost'].append(today.cost[instrument])
+            form['position'].append(
+                today.position_raw.get(instrument, 0.))
+    return pandas.DataFrame(data=form)
+
+def handle_result(alpha_path, results_set, quiet_mode, output_path):
     """
     Handle results of simulation.
     """
+    results, eval_results, instruments = results_set
     if output_path:
         output_data = {
             'simulation_results': results,
@@ -91,7 +114,11 @@ def handle_result(
         with open(os.path.join(output_path, 'results'), 'wb') as file:
             pickle.dump(output_data, file)
     if not quiet_mode:
-        print(alpha_path, results, eval_results, sep='\n')
+        with pandas.option_context(
+                'display.max_rows', None, 'display.max_columns', None):
+            print(alpha_path,
+                  convert_to_dataframe(results, instruments),
+                  json.dumps(eval_results, indent=1), sep='\n')
 
 def simulate(results_queue, data_all, alpha_settings_path, skip_evaluation):
     """
@@ -119,7 +146,9 @@ def simulate(results_queue, data_all, alpha_settings_path, skip_evaluation):
     eval_results = (
         Evaluator().run(TRADING_INSTRUMENTS[settings.target], results)
         if not skip_evaluation else None)
-    results_queue.put((alpha_settings_path, results, eval_results))
+    results_queue.put(
+        (alpha_settings_path, TRADING_INSTRUMENTS[settings.target],
+         results, eval_results))
 
 def main():
     """
@@ -140,15 +169,13 @@ def main():
     unordered_results = {}
     while any(process.is_alive() for process in processes):
         if not results_queue.empty():
-            path, results, eval_results = results_queue.get()
-            unordered_results[path] = (results, eval_results)
+            path, instruments, results, eval_results = results_queue.get()
+            unordered_results[path] = (results, eval_results, instruments)
     for process in processes:
         process.join()
     for path in args.alpha_settings_paths:
-        results, eval_results = unordered_results[path]
         handle_result(
-            results, eval_results, path,
-            args.quiet_mode, args.output_path)
+            path, unordered_results[path], args.quiet_mode, args.output_path)
 
 if __name__ == '__main__':
     main()
