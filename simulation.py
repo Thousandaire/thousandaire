@@ -4,11 +4,12 @@ Fuctions for a process to simulate an alpha.
 
 import argparse
 import copy
+import ctypes
 import importlib
 import json
 import os
 import pickle
-from multiprocessing import Process, Queue
+from multiprocessing import Array, Process, Queue
 import pandas
 from thousandaire.constants import DATA_LIST_ALL, OFFICIAL_CURRENCY
 from thousandaire.constants import TRADING_CONFIGS
@@ -43,27 +44,36 @@ def build_parser():
         action='store')
     return parser.parse_args()
 
+def encode_data(data):
+    """
+    Encode data to build shared memory.
+    """
+    return Array(ctypes.c_char, pickle.dumps(data), lock=False)
+
 def initialize():
     """
     Load all available dataset and bind them with workdays.
 
     Return bound data, which is a dict of regions to Dataset.
     """
-    raw_data = DataLoader(DATA_LIST_ALL).get_all()
+    raw_dataset = DataLoader(DATA_LIST_ALL).get_all()
     workdays_all = {
-        region : raw_data['workdays'][region]
-        for region in TRADING_REGIONS if region in raw_data['workdays']}
-    bound_data = {}
+        region : raw_dataset['workdays'][region]
+        for region in TRADING_REGIONS if region in raw_dataset['workdays']}
+    bound_dataset = {}
+    bound_dataset['workdays'] = {}
     for region, workdays in workdays_all.items():
-        bound_data[region] = copy.deepcopy(raw_data)
-        for dataset in bound_data[region].values():
+        bound_dataset[region] = copy.deepcopy(raw_dataset)
+        for name, dataset in bound_dataset[region].items():
             dataset.set_workdays(workdays)
-    bound_data['workdays'] = workdays_all
-    return bound_data
+            bound_dataset[region][name] = encode_data(dataset)
+        bound_dataset['workdays'][region] = encode_data(workdays)
+    return bound_dataset
 
-def extract_data(raw_data, data_list, price_dataset, region):
+def extract_data(raw_dataset, dataset_list, price_dataset, region):
     """
     Extract data on data_list from raw_data.
+    This function will decode the data from shared memory.
 
     Return data will be a dictionary, including three key-value pairs:
     (1) 'workdays'
@@ -74,11 +84,10 @@ def extract_data(raw_data, data_list, price_dataset, region):
         a dict of Dataset, other data that users specify in data_list.
     """
     return {
-        'workdays' : raw_data['workdays'][region],
-        'price' : raw_data[region][price_dataset],
-        'others' : {
-            name : raw_data[region][name]
-            for name in data_list if name in raw_data[region]}}
+        'workdays' : pickle.loads(raw_dataset['workdays'][region]),
+        'price' : pickle.loads(raw_dataset[region][price_dataset]),
+        'others' : {name : pickle.loads(raw_dataset[region][name])
+                    for name in dataset_list if name in raw_dataset[region]}}
 
 def convert_to_dataframe(results, instruments):
     """
@@ -134,12 +143,12 @@ def simulate(results_queue, data_all, alpha_settings_path, skip_evaluation):
     if not settings.is_valid():
         raise TypeError("Incorrect type in %s settings" % alpha_settings_path)
     _, region = settings.target
-    if (settings.end_date is None or
-            settings.end_date > data_all['workdays'][region][-1].date):
-        settings.end_date = data_all['workdays'][region][-1].date
     data_required = extract_data(
         data_all, settings.data_list,
         TRADING_CONFIGS[settings.target][PRICE_DATASET], region)
+    if (settings.end_date is None or
+            settings.end_date > data_required['workdays'][-1].date):
+        settings.end_date = data_all['workdays'][region][-1].date
     pnl_function = TRADING_CONFIGS[settings.target][PNL_FUNCTION](
         OFFICIAL_CURRENCY[region], TRADING_INSTRUMENTS[settings.target])
     results = Simulator(settings, data_required, pnl_function).run()
@@ -150,12 +159,10 @@ def simulate(results_queue, data_all, alpha_settings_path, skip_evaluation):
         (alpha_settings_path, TRADING_INSTRUMENTS[settings.target],
          results, eval_results))
 
-def main():
+def dispatcher(args, data_all):
     """
-    Run the simulation process.
+    Dispatch simulation process for each alpha.
     """
-    args = build_parser()
-    data_all = initialize()
     processes = []
     results_queue = Queue()
     for path in args.alpha_settings_paths:
@@ -176,6 +183,14 @@ def main():
     for path in args.alpha_settings_paths:
         handle_result(
             path, unordered_results[path], args.quiet_mode, args.output_path)
+
+def main():
+    """
+    Run the simulation process.
+    """
+    args = build_parser()
+    data_all = initialize()
+    dispatcher(args, data_all)
 
 if __name__ == '__main__':
     main()
