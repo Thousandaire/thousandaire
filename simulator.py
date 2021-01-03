@@ -2,25 +2,9 @@
 Simulator that simulates trading process and estimates profits and losses.
 """
 
-import copy
 import uuid
 from thousandaire.data_classes import Data
 from thousandaire.constants import TRADING_INSTRUMENTS
-
-def decode_data(data):
-    """
-    Decode data shared by the simulation main process.
-
-    In multi-processing, the simulator will get data by shared memory, which
-    are encoded by pickle to make them sharable.
-    To avoid polluting the shared memory, we need to create a local copy.
-    Since 'price' may also be in 'others', we should deepcopy the data
-    separately instead of using copy.deepcopy(data).
-    """
-    return {
-        'workdays' : copy.deepcopy(data['workdays']),
-        'price' : copy.deepcopy(data['price']),
-        'others' : copy.deepcopy(data['others'])}
 
 class Simulator:
     """
@@ -28,7 +12,7 @@ class Simulator:
     """
     def __init__(self, settings, data, pnl_function):
         self.pnl_function = pnl_function
-        self.data = decode_data(data)
+        self.data = data
         self.settings = settings
         self.__result = Data(
             'result', ['pnl', 'cost', 'position_raw', 'position_np'])
