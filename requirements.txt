@@ -1,6 +1,7 @@
 astroid==2.4.2
 certifi==2020.6.20
 chardet==3.0.4
+Flask==1.1.2
 idna==2.10
 isort==5.4.2
 lazy-object-proxy==1.4.3
@@ -8,6 +9,7 @@ mccabe==0.6.1
 numpy==1.19.1
 pandas==0.25.3
 pylint==2.6.0
+ratelimit==2.2.1
 requests==2.24.0
 six==1.15.0
 toml==0.10.1

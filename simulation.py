@@ -9,12 +9,13 @@ import json
 import os
 import pickle
 from multiprocessing import Process, Queue
+from time import sleep
+import requests
 import pandas
-from thousandaire.constants import DATA_LIST_ALL, OFFICIAL_CURRENCY
-from thousandaire.constants import TRADING_CONFIGS
+from thousandaire.constants import DATA_LIST_ALL, EVAL_URL
+from thousandaire.constants import OFFICIAL_CURRENCY, TRADING_CONFIGS
 from thousandaire.constants import TRADING_INSTRUMENTS, TRADING_REGIONS
 from thousandaire.data_loader import DataLoader
-from thousandaire.evaluator import Evaluator
 from thousandaire.simulator import Simulator
 
 PRICE_DATASET = 'price_dataset'
@@ -143,12 +144,25 @@ def simulate(results_queue, data_all, alpha_settings_path, skip_evaluation):
     pnl_function = TRADING_CONFIGS[settings.target][PNL_FUNCTION](
         OFFICIAL_CURRENCY[region], TRADING_INSTRUMENTS[settings.target])
     results = Simulator(settings, data_required, pnl_function).run()
-    eval_results = (
-        Evaluator().run(TRADING_INSTRUMENTS[settings.target], results)
-        if not skip_evaluation else None)
+    eval_request = {
+        'indicator_names': None,
+        'instruments': TRADING_INSTRUMENTS[settings.target],
+        'data': results}
+    connect_attemp = 0
+    eval_results = None
+    while connect_attemp < 3:
+        try:
+            eval_results = (
+                requests.post(EVAL_URL, data=pickle.dumps(eval_request)).content
+                if not skip_evaluation else None)
+            break
+        except requests.ConnectionError as err:
+            print('Connection falied.', err, sep='\n')
+            connect_attemp += 1
+            sleep(1)
     results_queue.put(
-        (alpha_settings_path, TRADING_INSTRUMENTS[settings.target],
-         results, eval_results))
+        (alpha_settings_path, TRADING_INSTRUMENTS[settings.target], results,
+         pickle.loads(eval_results) if eval_results else None))
 
 def main():
     """
